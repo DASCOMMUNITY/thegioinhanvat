@@ -286,14 +286,13 @@
             </div>
         </div>
     </div>
-
     <script>
         // === KHAI BÁO SUPABASE ===
-        // BẠN HÃY THAY THẾ 2 DÒNG DƯỚI ĐÂY BẰNG THÔNG TIN TỪ SUPABASE CỦA BẠN
         const SUPABASE_URL = 'https://vkovlqgnucqhqbwzegxg.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_WFNR-2b2E2EB-1DzNAyRXg_kdaD4cOT';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Đã đổi tên biến thành supabaseClient để tránh trùng tên thư viện
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let currentLink = "";
 
         // Chạy ngay khi tải trang
@@ -312,7 +311,7 @@
         // Tải danh sách Character từ Supabase Database
         async function loadCharacters() {
             const grid = document.getElementById('character-grid');
-            const { data, error } = await supabase.from('characters').select('*').order('created_at', { ascending: false });
+            const { data, error } = await supabaseClient.from('characters').select('*').order('created_at', { ascending: false });
 
             if (error) {
                 grid.innerHTML = '<p>Lỗi tải dữ liệu. Hãy kiểm tra kết nối Supabase.</p>';
@@ -351,7 +350,7 @@
             document.getElementById('detail-name').innerText = char.name;
             document.getElementById('detail-gender').innerText = char.gender;
             document.getElementById('detail-author').innerText = char.author;
-            document.getElementById('detail-slogan').innerText = `"${char.slogan}"`;
+            document.getElementById('detail-slogan').innerText = "${char.slogan}";
             document.getElementById('detail-tags').innerText = char.hashtags;
             document.getElementById('detail-plot').innerText = char.plot;
             
@@ -384,13 +383,13 @@
                 const fileInput = document.getElementById('avatarFile');
                 const file = fileInput.files[0];
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${Date.now()}.${fileExt}`;
+                const fileName = ${Date.now()}.${fileExt};
                 
-                const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+                const { error: uploadError } = await supabaseClient.storage.from('avatars').upload(fileName, file);
                 if (uploadError) throw uploadError;
 
                 // 2. Lấy public URL của ảnh
-                const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                const { data: publicUrlData } = supabaseClient.storage.from('avatars').getPublicUrl(fileName);
                 const avatarUrl = publicUrlData.publicUrl;
 
                 // 3. Ghi dữ liệu vào bảng characters
@@ -408,10 +407,10 @@
                     link: document.getElementById('charLink').value
                 };
 
-                const { error: insertError } = await supabase.from('characters').insert([charData]);
+                const { error: insertError } = await supabaseClient.from('characters').insert([charData]);
                 if (insertError) throw insertError;
 
-                // Thành công: Reset form, đóng modal và tải lại danh sách
+// Thành công: Reset form, đóng modal và tải lại danh sách
                 document.getElementById('characterForm').reset();
                 closeCreateModal();
                 loadCharacters();
