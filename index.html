@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thế Giới Nhân Vật</title>
+    <!-- Nhúng thư viện Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --primary-pink: #ffb6c1;
+            --light-pink: #ffe6ea;
+            --dark-pink: #d88fa0;
+            --text-dark: #4a4a4a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--light-pink);
+            color: var(--text-dark);
+        }
+
+        header {
+            background-color: var(--primary-pink);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        h1 {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+        }
+
+        /* Hiệu ứng nổi 3D cho Nút */
+        .btn-3d {
+            background-color: #ff6b81;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #d63031;
+            transition: all 0.1s ease;
+        }
+
+        .btn-3d:active {
+            transform: translateY(5px);
+            box-shadow: 0 0 0 #d63031;
+        }
+
+        /* Lưới hiển thị danh sách Card */
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Card Nhân vật */
+        .card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+        }
+
+        .card-info {
+            padding: 15px;
+        }
+
+        .card-info h3 {
+            color: #ff6b81;
+            margin-bottom: 5px;
+        }
+
+        .tags {
+            font-size: 0.8em;
+            color: #747d8c;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        /* Giao diện toàn màn hình (Modal) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--light-pink);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .modal-content {
+            background: white;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px; right: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--dark-pink);
+            cursor: pointer;
+        }
+
+        /* Form nhập liệu */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="url"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--primary-pink);
+            border-radius: 6px;
+            outline: none;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Modal Chi tiết Nhân vật */
+        #detailModal .modal-content {
+            text-align: left;
+        }
+        #detail-avatar {
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin: 0 auto 20px auto;
+            display: block;
+            border: 5px solid var(--light-pink);
+        }
+        .detail-item {
+            margin-bottom: 15px;
+        }
+        .detail-item strong {
+            color: #ff6b81;
+        }
+        
+        .center-btn {
+            text-align: center;
+            margin-top: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Thế Giới Nhân Vật</h1>
+        <button class="btn-3d" onclick="openCreateModal()">+ Tạo Character</button>
+    </header>
+
+    <main>
+        <!-- Danh sách card nhân vật sẽ được Javascript load vào đây -->
+        <div class="character-grid" id="character-grid">
+            <p style="text-align: center; width: 100%;">Đang tải nhân vật...</p>
+        </div>
+    </main>
+
+    <!-- GIAO DIỆN TẠO NHÂN VẬT (Toàn màn hình) -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeCreateModal()">&times;</span>
+            <h2 style="color: #ff6b81; margin-bottom: 20px; text-align: center;">Tạo Nhân Vật Mới</h2>
+            
+            <form id="characterForm" onsubmit="submitCharacter(event)">
+                <div class="form-group">
+                    <label>Tải ảnh Avatar (Bắt buộc) *</label>
+                    <input type="file" id="avatarFile" accept="image/*" required>
+                </div>
+                <div class="form-group">
+                    <label>Tên nhân vật *</label>
+                    <input type="text" id="charName" required>
+                </div>
+                <div class="form-group">
+                    <label>Giới tính *</label>
+                    <select id="charGender" required>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Câu slogan *</label>
+                    <input type="text" id="charSlogan" required>
+                </div>
+                <div class="form-group">
+                    <label>Tên tác giả (Creator) *</label>
+                    <input type="text" id="charAuthor" required>
+                </div>
+                <div class="form-group">
+                    <label>Note creator (Tùy chọn)</label>
+                    <input type="text" id="charNote">
+                </div>
+                <div class="form-group">
+                    <label>Hashtag (Ngăn cách bởi dấu phẩy, VD: #school, #xuyên_không) *</label>
+                    <input type="text" id="charTags" required>
+                </div>
+                <div class="form-group">
+                    <label>Plot (Cốt truyện) *</label>
+                    <textarea id="charPlot" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Giới thiệu (Introduce - Tùy chọn)</label>
+                    <textarea id="charIntro"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Đoạn mở đầu (Opening section - Tùy chọn)</label>
+                    <textarea id="charOpening"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Link (URL) *</label>
+                    <input type="url" id="charLink" placeholder="https://" required>
+                </div>
+
+                <div class="center-btn">
+                    <button type="submit" class="btn-3d" id="submitBtn">Đăng Tải</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- GIAO DIỆN XEM CHI TIẾT NHÂN VẬT -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeDetailModal()">&times;</span>
+            <img id="detail-avatar" src="" alt="Avatar">
+            <h2 id="detail-name" style="text-align: center; margin-bottom: 20px;"></h2>
+            
+            <div class="detail-item"><strong>Giới tính:</strong> <span id="detail-gender"></span></div>
+            <div class="detail-item"><strong>Tác giả:</strong> <span id="detail-author"></span></div>
+            <div class="detail-item"><strong>Slogan:</strong> <em id="detail-slogan"></em></div>
+            <div class="detail-item"><strong>Hashtag:</strong> <span id="detail-tags"></span></div>
+            <div class="detail-item"><strong>Plot:</strong> <p id="detail-plot" style="white-space: pre-line; margin-top:5px;"></p></div>
+            <div id="detail-intro-container" class="detail-item"><strong>Giới thiệu:</strong> <p id="detail-intro" style="white-space: pre-line; margin-top:5px;"></p></div>
+            <div id="detail-opening-container" class="detail-item"><strong>Mở đầu:</strong> <p id="detail-opening" style="white-space: pre-line; margin-top:5px;"></p></div>
+            <div id="detail-note-container" class="detail-item"><strong>Note:</strong> <span id="detail-note"></span></div>
+
+            <div class="center-btn">
+                <button class="btn-3d" id="detail-link-btn" onclick="openCharacterLink()">Open Character</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === KHAI BÁO SUPABASE ===
+        // BẠN HÃY THAY THẾ 2 DÒNG DƯỚI ĐÂY BẰNG THÔNG TIN TỪ SUPABASE CỦA BẠN
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentLink = "";
+
+        // Chạy ngay khi tải trang
+        document.addEventListener("DOMContentLoaded", loadCharacters);
+
+        // Đóng/Mở Modal Tạo
+        function openCreateModal() { document.getElementById('createModal').style.display = 'block'; }
+        function closeCreateModal() { document.getElementById('createModal').style.display = 'none'; }
+        function closeDetailModal() { document.getElementById('detailModal').style.display = 'none'; }
+
+        // Mở Link nhân vật
+        function openCharacterLink() {
+            if(currentLink) window.open(currentLink, '_blank');
+        }
+
+        // Tải danh sách Character từ Supabase Database
+        async function loadCharacters() {
+            const grid = document.getElementById('character-grid');
+            const { data, error } = await supabase.from('characters').select('*').order('created_at', { ascending: false });
+
+            if (error) {
+                grid.innerHTML = '<p>Lỗi tải dữ liệu. Hãy kiểm tra kết nối Supabase.</p>';
+                console.error(error);
+                return;
+            }
+
+            if(data.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; width: 100%;">Chưa có nhân vật nào. Hãy tạo nhân vật đầu tiên!</p>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            data.forEach(char => {
+                // Tạo Card
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.onclick = () => showDetail(char);
+                
+                card.innerHTML = `
+                    <img src="${char.avatar_url}" alt="${char.name}">
+                    <div class="card-info">
+                        <h3>${char.name}</h3>
+                        <p style="font-size: 14px; font-weight: bold;">Creator: ${char.author}</p>
+                        <p style="font-size: 14px; font-style: italic;">"${char.slogan}"</p>
+                        <p class="tags">${char.hashtags}</p>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Hiển thị Chi tiết Modal
+        function showDetail(char) {
+            document.getElementById('detail-avatar').src = char.avatar_url;
+            document.getElementById('detail-name').innerText = char.name;
+            document.getElementById('detail-gender').innerText = char.gender;
+            document.getElementById('detail-author').innerText = char.author;
+            document.getElementById('detail-slogan').innerText = `"${char.slogan}"`;
+            document.getElementById('detail-tags').innerText = char.hashtags;
+            document.getElementById('detail-plot').innerText = char.plot;
+            
+            // Xử lý các trường không bắt buộc (ẩn nếu không có dữ liệu)
+            const handleOptional = (id, data, containerId) => {
+                if(data && data.trim() !== "") {
+                    document.getElementById(id).innerText = data;
+                    document.getElementById(containerId).style.display = "block";
+                } else {
+                    document.getElementById(containerId).style.display = "none";
+                }
+            }
+            handleOptional('detail-intro', char.introduce, 'detail-intro-container');
+            handleOptional('detail-opening', char.opening, 'detail-opening-container');
+            handleOptional('detail-note', char.note, 'detail-note-container');
+
+            currentLink = char.link;
+            document.getElementById('detailModal').style.display = 'block';
+        }
+
+        // Đẩy thông tin Nhân Vật lên Supabase
+        async function submitCharacter(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = "Đang tải lên...";
+            btn.disabled = true;
+
+            try {
+                // 1. Upload Ảnh lên Storage
+                const fileInput = document.getElementById('avatarFile');
+                const file = fileInput.files[0];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+                if (uploadError) throw uploadError;
+
+                // 2. Lấy public URL của ảnh
+                const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                const avatarUrl = publicUrlData.publicUrl;
+
+                // 3. Ghi dữ liệu vào bảng characters
+                const charData = {
+                    avatar_url: avatarUrl,
+                    name: document.getElementById('charName').value,
+                    gender: document.getElementById('charGender').value,
+                    slogan: document.getElementById('charSlogan').value,
+                    author: document.getElementById('charAuthor').value,
+                    note: document.getElementById('charNote').value,
+                    hashtags: document.getElementById('charTags').value,
+                    plot: document.getElementById('charPlot').value,
+                    introduce: document.getElementById('charIntro').value,
+                    opening: document.getElementById('charOpening').value,
+                    link: document.getElementById('charLink').value
+                };
+
+                const { error: insertError } = await supabase.from('characters').insert([charData]);
+                if (insertError) throw insertError;
+
+                // Thành công: Reset form, đóng modal và tải lại danh sách
+                document.getElementById('characterForm').reset();
+                closeCreateModal();
+                loadCharacters();
+                alert("Tạo nhân vật thành công!");
+
+            } catch (error) {
+                console.error(error);
+                alert("Có lỗi xảy ra: " + error.message);
+            } finally {
+                btn.innerText = "Đăng Tải";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
